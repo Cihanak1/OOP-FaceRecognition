@@ -101,7 +101,7 @@ public partial class MainForm : Form
 
             btnStartCamera.Enabled = false;
             btnStopCamera.Enabled = true;
-            lblStatus.Text = "Durum: Kamera aktif (Aynalı görüntü, yüz ve el algılama aktif)";
+            lblStatus.Text = "Durum: Kamera aktif (Aynalı görüntü, yüz/el algılama ve portre modu)";
         }
         catch (Exception ex)
         {
@@ -121,26 +121,60 @@ public partial class MainForm : Form
         {
             if (capture.Read(currentFrame) && !currentFrame.Empty())
             {
-                // Görüntüyü yatay olarak aynala
+                // 1. Görüntüyü yatay olarak aynala
                 Cv2.Flip(currentFrame, currentFrame, FlipMode.Y);
 
                 if (grayFrame != null)
                 {
                     Cv2.CvtColor(currentFrame, grayFrame, ColorConversionCodes.BGR2GRAY);
 
-                    // 1. Yüz Tespiti
                     Rect[] faces = Array.Empty<Rect>();
                     if (faceCascade != null)
                     {
                         faces = faceCascade.DetectMultiScale(grayFrame, 1.1, 4, HaarDetectionTypes.ScaleImage, new OpenCvSharp.Size(30, 30));
-                        foreach (Rect face in faces)
-                        {
-                            Cv2.Rectangle(currentFrame, face, Scalar.Green, 2);
-                            Cv2.PutText(currentFrame, "Yuz", new OpenCvSharp.Point(face.X, Math.Max(20, face.Y - 6)), HersheyFonts.HersheySimplex, 0.6, Scalar.Green, 2);
-                        }
                     }
 
-                    // 2. El / Avuç Tespiti
+                    // 2. Arka Planı Bulanıklaştırma (Portre Modu)
+                    if (chkBlurBackground.Checked && faces.Length > 0)
+                    {
+                        Rect mainFace = faces[0];
+
+                        using Mat blurred = new Mat();
+                        Cv2.GaussianBlur(currentFrame, blurred, new OpenCvSharp.Size(51, 51), 0);
+
+                        using Mat mask = new Mat(currentFrame.Size(), MatType.CV_8UC1, Scalar.All(0));
+
+                        // Baş bölgesi elipsi
+                        OpenCvSharp.Point headCenter = new OpenCvSharp.Point(mainFace.X + mainFace.Width / 2, mainFace.Y + mainFace.Height / 2);
+                        OpenCvSharp.Size headAxes = new OpenCvSharp.Size((int)(mainFace.Width * 0.75), (int)(mainFace.Height * 0.95));
+                        Cv2.Ellipse(mask, headCenter, headAxes, 0, 0, 360, Scalar.All(255), -1);
+
+                        // Omuz ve gövde bölgesi
+                        OpenCvSharp.Point[] bodyPoly = new OpenCvSharp.Point[]
+                        {
+                            new OpenCvSharp.Point(Math.Max(0, mainFace.X - (int)(mainFace.Width * 0.9)), currentFrame.Height),
+                            new OpenCvSharp.Point(mainFace.X, mainFace.Bottom),
+                            new OpenCvSharp.Point(mainFace.Right, mainFace.Bottom),
+                            new OpenCvSharp.Point(Math.Min(currentFrame.Width, mainFace.Right + (int)(mainFace.Width * 0.9)), currentFrame.Height)
+                        };
+                        Cv2.FillConvexPoly(mask, bodyPoly, Scalar.All(255));
+
+                        // Maske kenarlarını yumuşat
+                        Cv2.GaussianBlur(mask, mask, new OpenCvSharp.Size(35, 35), 0);
+
+                        // Net kişiyi bulanık arka planın üzerine kopyala
+                        currentFrame.CopyTo(blurred, mask);
+                        blurred.CopyTo(currentFrame);
+                    }
+
+                    // 3. Yüz çerçevesi çizimi
+                    foreach (Rect face in faces)
+                    {
+                        Cv2.Rectangle(currentFrame, face, Scalar.Green, 2);
+                        Cv2.PutText(currentFrame, "Yuz", new OpenCvSharp.Point(face.X, Math.Max(20, face.Y - 6)), HersheyFonts.HersheySimplex, 0.6, Scalar.Green, 2);
+                    }
+
+                    // 4. El / Avuç Tespiti
                     if (handCascade != null)
                     {
                         Rect[] hands = handCascade.DetectMultiScale(grayFrame, 1.15, 3, HaarDetectionTypes.ScaleImage, new OpenCvSharp.Size(40, 40));

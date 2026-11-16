@@ -13,6 +13,7 @@ Bu projede C# ve OpenCV kullanarak kameradaki yüzleri ve elleri algılayan basi
 - Kamera görüntüsünü yatay olarak aynalama
 - Kameradaki yüzleri algılama ve yeşil çerçeveyle işaretleme
 - Kameradaki elleri algılama ve çerçeveyle işaretleme
+- Arka planı bulanıklaştırma (Portre Modu)
 
 ## Çalıştırma
 Projeyi Visual Studio ile açıp F5'e basabilirsiniz.
