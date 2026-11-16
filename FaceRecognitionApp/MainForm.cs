@@ -11,6 +11,7 @@ public partial class MainForm : Form
 {
     private VideoCapture? capture;
     private CascadeClassifier? faceCascade;
+    private CascadeClassifier? handCascade;
     private System.Windows.Forms.Timer? cameraTimer;
     private Mat? currentFrame;
     private Mat? grayFrame;
@@ -25,23 +26,23 @@ public partial class MainForm : Form
         FormClosing += MainForm_FormClosing;
     }
 
-    private string GetCascadePath()
+    private string GetCascadePath(string fileName)
     {
-        string path1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "haarcascade_frontalface_default.xml");
+        string path1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
         if (File.Exists(path1))
         {
             return path1;
         }
 
-        string path2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "haarcascade_frontalface_default.xml");
+        string path2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", fileName);
         if (File.Exists(path2))
         {
             return Path.GetFullPath(path2);
         }
 
-        if (File.Exists("haarcascade_frontalface_default.xml"))
+        if (File.Exists(fileName))
         {
-            return Path.GetFullPath("haarcascade_frontalface_default.xml");
+            return Path.GetFullPath(fileName);
         }
 
         return string.Empty;
@@ -54,11 +55,11 @@ public partial class MainForm : Form
             return;
         }
 
-        string cascadePath = GetCascadePath();
-        if (string.IsNullOrEmpty(cascadePath))
+        string facePath = GetCascadePath("haarcascade_frontalface_default.xml");
+        if (string.IsNullOrEmpty(facePath))
         {
             MessageBox.Show("Yüz algılama dosyası (haarcascade_frontalface_default.xml) bulunamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            lblStatus.Text = "Durum: Model dosyası bulunamadı.";
+            lblStatus.Text = "Durum: Yüz modeli bulunamadı.";
             return;
         }
 
@@ -66,7 +67,13 @@ public partial class MainForm : Form
         {
             if (faceCascade == null)
             {
-                faceCascade = new CascadeClassifier(cascadePath);
+                faceCascade = new CascadeClassifier(facePath);
+            }
+
+            string handPath = GetCascadePath("palm.xml");
+            if (!string.IsNullOrEmpty(handPath) && handCascade == null)
+            {
+                handCascade = new CascadeClassifier(handPath);
             }
 
             capture = new VideoCapture(0);
@@ -94,7 +101,7 @@ public partial class MainForm : Form
 
             btnStartCamera.Enabled = false;
             btnStopCamera.Enabled = true;
-            lblStatus.Text = "Durum: Kamera aktif, yüzler taranıyor...";
+            lblStatus.Text = "Durum: Kamera aktif (Aynalı görüntü, yüz ve el algılama aktif)";
         }
         catch (Exception ex)
         {
@@ -114,14 +121,47 @@ public partial class MainForm : Form
         {
             if (capture.Read(currentFrame) && !currentFrame.Empty())
             {
-                if (faceCascade != null && grayFrame != null)
+                // Görüntüyü yatay olarak aynala
+                Cv2.Flip(currentFrame, currentFrame, FlipMode.Y);
+
+                if (grayFrame != null)
                 {
                     Cv2.CvtColor(currentFrame, grayFrame, ColorConversionCodes.BGR2GRAY);
-                    Rect[] faces = faceCascade.DetectMultiScale(grayFrame, 1.1, 4, HaarDetectionTypes.ScaleImage, new OpenCvSharp.Size(30, 30));
 
-                    foreach (Rect face in faces)
+                    // 1. Yüz Tespiti
+                    Rect[] faces = Array.Empty<Rect>();
+                    if (faceCascade != null)
                     {
-                        Cv2.Rectangle(currentFrame, face, Scalar.Green, 2);
+                        faces = faceCascade.DetectMultiScale(grayFrame, 1.1, 4, HaarDetectionTypes.ScaleImage, new OpenCvSharp.Size(30, 30));
+                        foreach (Rect face in faces)
+                        {
+                            Cv2.Rectangle(currentFrame, face, Scalar.Green, 2);
+                            Cv2.PutText(currentFrame, "Yuz", new OpenCvSharp.Point(face.X, Math.Max(20, face.Y - 6)), HersheyFonts.HersheySimplex, 0.6, Scalar.Green, 2);
+                        }
+                    }
+
+                    // 2. El / Avuç Tespiti
+                    if (handCascade != null)
+                    {
+                        Rect[] hands = handCascade.DetectMultiScale(grayFrame, 1.15, 3, HaarDetectionTypes.ScaleImage, new OpenCvSharp.Size(40, 40));
+                        foreach (Rect hand in hands)
+                        {
+                            bool overlapsFace = false;
+                            foreach (Rect face in faces)
+                            {
+                                if (hand.IntersectsWith(face))
+                                {
+                                    overlapsFace = true;
+                                    break;
+                                }
+                            }
+
+                            if (!overlapsFace)
+                            {
+                                Cv2.Rectangle(currentFrame, hand, Scalar.Cyan, 2);
+                                Cv2.PutText(currentFrame, "El", new OpenCvSharp.Point(hand.X, Math.Max(20, hand.Y - 6)), HersheyFonts.HersheySimplex, 0.6, Scalar.Cyan, 2);
+                            }
+                        }
                     }
                 }
 
@@ -181,5 +221,6 @@ public partial class MainForm : Form
     {
         StopCamera();
         faceCascade?.Dispose();
+        handCascade?.Dispose();
     }
 }

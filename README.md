@@ -1,6 +1,6 @@
 # Yüz Tanıma Uygulaması
 
-Bu projede C# ve OpenCV kullanarak kameradaki yüzleri algılayan basit bir program yapıyorum.
+Bu projede C# ve OpenCV kullanarak kameradaki yüzleri ve elleri algılayan basit bir program yapıyorum.
 
 ## Kullanılan Teknolojiler
 - C#
@@ -10,8 +10,9 @@ Bu projede C# ve OpenCV kullanarak kameradaki yüzleri algılayan basit bir prog
 
 ## Özellikler
 - Kamerayı açma ve kapatma
-- Kameradaki yüzleri algılama
-- Algılanan yüzleri yeşil çerçeveyle işaretleme
+- Kamera görüntüsünü yatay olarak aynalama
+- Kameradaki yüzleri algılama ve yeşil çerçeveyle işaretleme
+- Kameradaki elleri algılama ve çerçeveyle işaretleme
 
 ## Çalıştırma
 Projeyi Visual Studio ile açıp F5'e basabilirsiniz.
