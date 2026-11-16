@@ -19,3 +19,5 @@ Bu projede C# ve OpenCV kullanarak kameradaki yüzleri ve elleri algılayan basi
 Projeyi Visual Studio ile açıp F5'e basabilirsiniz.
 
 ## Ekran Görüntüleri
+![Normal Görünüm](screenshots/ekran1.png)
+![Portre Modu - Arka Plan Bulanıklaştırma](screenshots/ekran2.png)
